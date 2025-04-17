@@ -1,9 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Smart Notes Wall123</title>
+  <title>Smart Notes Wall</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
@@ -14,13 +13,17 @@
     <div class="bg-white shadow-lg p-4 rounded-xl mb-6">
       <input id="noteTitle" type="text" placeholder="Title" class="w-full p-2 border rounded mb-2" />
       <textarea id="noteContent" rows="3" placeholder="Write your note..." class="w-full p-2 border rounded mb-2"></textarea>
-      <button onclick="addNote()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Add Note</button>
+      <input id="noteTags" type="text" placeholder="Tags (comma-separated)" class="w-full p-2 border rounded mb-2" />
+      <button onclick="saveNote()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Save Note</button>
+      <input id="searchTag" type="text" placeholder="Search by tag..." oninput="searchNotes()" class="w-full p-2 border rounded mt-4" />
+      <button onclick="exportToExcel()" class="mt-2 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Export to Excel</button>
     </div>
     <div id="notesContainer" class="columns-1 sm:columns-2 lg:columns-3 gap-4 space-y-4"></div>
-  </div>
-
-  <script>
-    // Your Firebase config
+    <div class="flex justify-center mt-4 gap-4">
+      <button onclick="prevPage()" class="px-4 py-2 bg-gray-300 rounded">Previous</button>
+      <button onclick="nextPage()" class="px-4 py-2 bg-gray-300 rounded">Next</button>
+    </div>
+  </div>  <script>
     const firebaseConfig = {
       apiKey: "AIzaSyBMaFbwodX0Vj3vappZmkaKuaPRMn1n0Q0",
       authDomain: "notes-app-17apr2025.firebaseapp.com",
@@ -34,34 +37,112 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // Add Note function
-    window.addNote = function() {
+    let editId = null;
+    let lastVisible = null;
+    let pageSize = 6;
+    let currentTag = '';
+
+    function saveNote() {
       const title = document.getElementById("noteTitle").value.trim();
       const content = document.getElementById("noteContent").value.trim();
-      if (!title || !content) return alert("Please fill both fields.");
+      const tags = document.getElementById("noteTags").value.trim();
+      if (!title || !content) return alert("Please fill all fields.");
 
-      db.collection("notes").add({
-        title,
-        content,
-        timestamp: new Date()
-      }).then(() => {
-        document.getElementById("noteTitle").value = '';
-        document.getElementById("noteContent").value = '';
-      });
-    };
+      const data = { title, content, tags, timestamp: new Date() };
 
-    // Real-time listener
-    db.collection("notes").orderBy("timestamp", "desc").onSnapshot(snapshot => {
-      const notesContainer = document.getElementById("notesContainer");
-      notesContainer.innerHTML = '';
-      snapshot.forEach(doc => {
-        const note = doc.data();
-        const div = document.createElement('div');
-        div.className = "bg-yellow-100 p-4 rounded-xl break-inside-avoid shadow text-gray-700";
-        div.innerHTML = `<h2 class="font-bold text-lg mb-2">${note.title}</h2><p>${note.content}</p>`;
-        notesContainer.appendChild(div);
+      if (editId) {
+        db.collection("notes").doc(editId).set(data).then(() => {
+          clearForm();
+          loadNotes();
+        });
+      } else {
+        db.collection("notes").add(data).then(() => {
+          clearForm();
+          loadNotes();
+        });
+      }
+    }
+
+    function clearForm() {
+      editId = null;
+      document.getElementById("noteTitle").value = '';
+      document.getElementById("noteContent").value = '';
+      document.getElementById("noteTags").value = '';
+    }
+
+    function editNote(id, note) {
+      document.getElementById("noteTitle").value = note.title;
+      document.getElementById("noteContent").value = note.content;
+      document.getElementById("noteTags").value = note.tags;
+      editId = id;
+    }
+
+    function deleteNote(id) {
+      db.collection("notes").doc(id).delete().then(loadNotes);
+    }
+
+    function searchNotes() {
+      currentTag = document.getElementById("searchTag").value.trim().toLowerCase();
+      loadNotes();
+    }
+
+    function exportToExcel() {
+      db.collection("notes").get().then(snapshot => {
+        let csv = 'Title,Content,Tags\n';
+        snapshot.forEach(doc => {
+          const n = doc.data();
+          csv += `"${n.title}","${n.content}","${n.tags}"\n`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'notes.csv';
+        a.click();
       });
-    });
-  </script>
-</body>
+    }
+
+    function renderNote(doc) {
+      const note = doc.data();
+      if (currentTag && (!note.tags || !note.tags.toLowerCase().includes(currentTag))) return;
+
+      const div = document.createElement('div');
+      div.className = "bg-yellow-100 p-4 rounded-xl break-inside-avoid shadow text-gray-700";
+      div.innerHTML = `
+        <h2 class="font-bold text-lg mb-2">${note.title}</h2>
+        <p>${note.content}</p>
+        <p class="text-xs text-gray-500 mt-2">Tags: ${note.tags || 'None'}</p>
+        <div class="flex gap-2 mt-2">
+          <button onclick='editNote("${doc.id}", ${JSON.stringify(note)})' class="text-blue-600 text-sm">Edit</button>
+          <button onclick='deleteNote("${doc.id}")' class="text-red-600 text-sm">Delete</button>
+        </div>
+      `;
+      document.getElementById("notesContainer").appendChild(div);
+    }
+
+    function loadNotes(startAfterDoc = null) {
+      let query = db.collection("notes").orderBy("timestamp", "desc").limit(pageSize);
+      if (startAfterDoc) query = query.startAfter(startAfterDoc);
+
+      query.get().then(snapshot => {
+        const container = document.getElementById("notesContainer");
+        container.innerHTML = '';
+        if (!snapshot.empty) {
+          lastVisible = snapshot.docs[snapshot.docs.length - 1];
+          snapshot.forEach(renderNote);
+        }
+      });
+    }
+
+    function nextPage() {
+      if (lastVisible) loadNotes(lastVisible);
+    }
+
+    function prevPage() {
+      // Simplified for now - can be enhanced to track pages in array
+      alert("Previous page not implemented in this basic version.");
+    }
+
+    loadNotes();
+  </script></body>
 </html>
