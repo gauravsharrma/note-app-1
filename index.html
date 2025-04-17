@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Excel Data Display</title>
+    <title>Excel Data Display4</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
         body {
@@ -95,6 +95,7 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const fileUpload = document.getElementById('file-upload');
@@ -110,6 +111,7 @@
             const bottomNextPageButton = document.getElementById('bottom-next-page');
             const bottomPageNumbersContainer = document.getElementById('bottom-page-numbers');
             const noDataRow = document.getElementById('no-data-row');
+            const converter = new showdown.Converter();
 
             let allData = [];
             let currentPage = 1;
@@ -236,10 +238,13 @@
                         idCell.classList.add('px-4', 'py-2');
                         noteCell.classList.add('px-4', 'py-2');
                         idCell.textContent = item.id;
+
+                        const htmlText = converter.makeHtml(item.text); // Convert Markdown to HTML
+
                         noteCell.innerHTML = `
                             <div class="note-container">
                                 <div class="note-category">Category: ${item.category}</div>
-                                <div>${item.text}</div>
+                                <div>${htmlText}</div>
                                 <div class="note-tags">Tags: ${item.tags}</div>
                             </div>
                         `;
