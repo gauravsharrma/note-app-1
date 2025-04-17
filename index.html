@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Excel to Title/Note</title>
+    <title>Excel Data Display</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
         body {
@@ -17,6 +17,25 @@
         #data-container th,
         #data-container td {
             text-align: left;
+        }
+
+        .note-container {
+            background-color: #fff8dc; /* Light yellow background */
+            border: 1px solid #e0c068;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .note-category {
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 5px;
+        }
+
+        .note-tags {
+            color: #777;
+            font-size: 0.9em;
         }
     </style>
 </head>
@@ -40,7 +59,7 @@
         </div>
         <div class="mb-4 w-full">
             <label for="search-input" class="block text-gray-700 text-sm font-bold mb-2">Search:</label>
-            <input type="text" id="search-input" placeholder="Search Title or Note" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            <input type="text" id="search-input" placeholder="Search Text or Tags" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
         </div>
     </div>
 
@@ -56,7 +75,7 @@
             <table id="data-container" class="table-auto w-full">
                 <thead>
                     <tr>
-                        <th class="px-4 py-2 text-left">Title</th>
+                        <th class="px-4 py-2 text-left">ID</th>
                         <th class="px-4 py-2 text-left">Note</th>
                     </tr>
                 </thead>
@@ -76,7 +95,6 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const fileUpload = document.getElementById('file-upload');
@@ -92,7 +110,6 @@
             const bottomNextPageButton = document.getElementById('bottom-next-page');
             const bottomPageNumbersContainer = document.getElementById('bottom-page-numbers');
             const noDataRow = document.getElementById('no-data-row');
-            const converter = new showdown.Converter();
 
             let allData = [];
             let currentPage = 1;
@@ -160,19 +177,20 @@
                     const workbook = XLSX.read(data, { type: 'array' });
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet); // Default header inference
 
                     allData = [];
                     if (jsonData && jsonData.length > 0) {
-                        for (let i = 1; i < jsonData.length; i++) {
-                            const rowData = jsonData[i];
-                            if (rowData && rowData.length >= 2) {
+                        jsonData.forEach(row => {
+                            if (row['ID'] !== undefined && row['Text'] !== undefined && row['Category'] !== undefined && row['Tags'] !== undefined) {
                                 allData.push({
-                                    title: rowData[0] !== undefined ? rowData[0].toString() : '',
-                                    note: rowData[1] !== undefined ? rowData[1].toString() : ''
+                                    id: row['ID'].toString(),
+                                    text: row['Text'].toString(),
+                                    category: row['Category'].toString(),
+                                    tags: row['Tags'].toString()
                                 });
                             }
-                        }
+                        });
                         noDataRow.classList.add('hidden');
                     } else {
                         noDataRow.classList.remove('hidden');
@@ -194,7 +212,7 @@
             function filterAndPaginateData() {
                 const searchTerm = searchInput.value.toLowerCase();
                 const filteredData = allData.filter(item =>
-                    item.title.toLowerCase().includes(searchTerm) || item.note.toLowerCase().includes(searchTerm)
+                    item.text.toLowerCase().includes(searchTerm) || item.tags.toLowerCase().includes(searchTerm)
                 );
 
                 const startIndex = (currentPage - 1) * rowsPerPage;
@@ -213,12 +231,18 @@
                 } else {
                     data.forEach(item => {
                         const row = dataBody.insertRow();
-                        const titleCell = row.insertCell();
+                        const idCell = row.insertCell();
                         const noteCell = row.insertCell();
-                        titleCell.classList.add('px-4', 'py-2');
+                        idCell.classList.add('px-4', 'py-2');
                         noteCell.classList.add('px-4', 'py-2');
-                        titleCell.textContent = item.title;
-                        noteCell.innerHTML = converter.makeHtml(item.note); // Convert Markdown to HTML
+                        idCell.textContent = item.id;
+                        noteCell.innerHTML = `
+                            <div class="note-container">
+                                <div class="note-category">Category: ${item.category}</div>
+                                <div>${item.text}</div>
+                                <div class="note-tags">Tags: ${item.tags}</div>
+                            </div>
+                        `;
                     });
                 }
             }
