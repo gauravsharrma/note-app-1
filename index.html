@@ -46,6 +46,12 @@
 
     <div id="right-frame" class="w-3/4 p-6 flex flex-col items-center">
         <h2 class="text-xl font-semibold mb-4 text-gray-800">Data</h2>
+        <div id="top-pagination-controls" class="mb-4 flex items-center justify-center space-x-2 hidden">
+            <button id="top-prev-page" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded disabled:opacity-50">Previous</button>
+            <div id="top-page-numbers" class="flex space-x-2">
+                </div>
+            <button id="top-next-page" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded disabled:opacity-50">Next</button>
+        </div>
         <div class="overflow-x-auto w-full">
             <table id="data-container" class="table-auto w-full">
                 <thead>
@@ -61,26 +67,32 @@
                 </tbody>
             </table>
         </div>
-        <div id="pagination-controls" class="mt-4 flex items-center justify-center space-x-2 hidden">
-            <button id="prev-page" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded disabled:opacity-50">Previous</button>
-            <div id="page-numbers" class="flex space-x-2">
+        <div id="bottom-pagination-controls" class="mt-4 flex items-center justify-center space-x-2 hidden">
+            <button id="bottom-prev-page" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded disabled:opacity-50">Previous</button>
+            <div id="bottom-page-numbers" class="flex space-x-2">
                 </div>
-            <button id="next-page" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded disabled:opacity-50">Next</button>
+            <button id="bottom-next-page" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded disabled:opacity-50">Next</button>
         </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const fileUpload = document.getElementById('file-upload');
             const dataBody = document.getElementById('data-body');
             const searchInput = document.getElementById('search-input');
             const rowsPerPageSelect = document.getElementById('rows-per-page');
-            const paginationControls = document.getElementById('pagination-controls');
-            const prevPageButton = document.getElementById('prev-page');
-            const nextPageButton = document.getElementById('next-page');
-            const pageNumbersContainer = document.getElementById('page-numbers');
+            const topPaginationControls = document.getElementById('top-pagination-controls');
+            const topPrevPageButton = document.getElementById('top-prev-page');
+            const topNextPageButton = document.getElementById('top-next-page');
+            const topPageNumbersContainer = document.getElementById('top-page-numbers');
+            const bottomPaginationControls = document.getElementById('bottom-pagination-controls');
+            const bottomPrevPageButton = document.getElementById('bottom-prev-page');
+            const bottomNextPageButton = document.getElementById('bottom-next-page');
+            const bottomPageNumbersContainer = document.getElementById('bottom-page-numbers');
             const noDataRow = document.getElementById('no-data-row');
+            const converter = new showdown.Converter();
 
             let allData = [];
             let currentPage = 1;
@@ -106,7 +118,7 @@
                 renderPagination();
             });
 
-            prevPageButton.addEventListener('click', () => {
+            topPrevPageButton.addEventListener('click', () => {
                 if (currentPage > 1) {
                     currentPage--;
                     renderTable(filterAndPaginateData());
@@ -114,7 +126,24 @@
                 }
             });
 
-            nextPageButton.addEventListener('click', () => {
+            topNextPageButton.addEventListener('click', () => {
+                const totalPages = Math.ceil(allData.length / rowsPerPage);
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    renderTable(filterAndPaginateData());
+                    renderPagination();
+                }
+            });
+
+            bottomPrevPageButton.addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    renderTable(filterAndPaginateData());
+                    renderPagination();
+                }
+            });
+
+            bottomNextPageButton.addEventListener('click', () => {
                 const totalPages = Math.ceil(allData.length / rowsPerPage);
                 if (currentPage < totalPages) {
                     currentPage++;
@@ -189,83 +218,88 @@
                         titleCell.classList.add('px-4', 'py-2');
                         noteCell.classList.add('px-4', 'py-2');
                         titleCell.textContent = item.title;
-                        noteCell.textContent = item.note;
+                        noteCell.innerHTML = converter.makeHtml(item.note); // Convert Markdown to HTML
                     });
                 }
             }
 
             function renderPagination() {
-                pageNumbersContainer.innerHTML = '';
                 const totalPages = Math.ceil(allData.length / rowsPerPage);
+                const updatePaginationControls = (container, prevButton, nextButton, numbersContainer) => {
+                    numbersContainer.innerHTML = '';
 
-                if (totalPages > 1) {
-                    paginationControls.classList.remove('hidden');
+                    if (totalPages > 1) {
+                        container.classList.remove('hidden');
 
-                    const maxPagesToShow = 5;
-                    let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
-                    let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+                        const maxPagesToShow = 5;
+                        let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+                        let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
 
-                    if (endPage - startPage + 1 < maxPagesToShow && endPage < totalPages) {
-                        endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
-                    }
-                    if (endPage - startPage + 1 < maxPagesToShow && startPage > 1) {
-                        startPage = Math.max(1, endPage - maxPagesToShow + 1);
-                    }
-
-                    if (startPage > 1) {
-                        const firstPageButton = document.createElement('button');
-                        firstPageButton.textContent = '1';
-                        firstPageButton.classList.add('bg-white', 'hover:bg-gray-200', 'text-gray-800', 'font-bold', 'py-2', 'px-3', 'rounded');
-                        firstPageButton.addEventListener('click', () => {
-                            currentPage = 1;
-                            renderTable(filterAndPaginateData());
-                            renderPagination();
-                        });
-                        pageNumbersContainer.appendChild(firstPageButton);
-                        if (startPage > 2) {
-                            const dots = document.createElement('span');
-                            dots.textContent = '...';
-                            pageNumbersContainer.appendChild(dots);
+                        if (endPage - startPage + 1 < maxPagesToShow && endPage < totalPages) {
+                            endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
                         }
-                    }
-
-                    for (let i = startPage; i <= endPage; i++) {
-                        const pageButton = document.createElement('button');
-                        pageButton.textContent = i;
-                        pageButton.classList.add('bg-white', 'hover:bg-gray-200', 'text-gray-800', 'font-bold', 'py-2', 'px-3', 'rounded');
-                        if (i === currentPage) {
-                            pageButton.classList.add('bg-blue-500', 'text-white');
+                        if (endPage - startPage + 1 < maxPagesToShow && startPage > 1) {
+                            startPage = Math.max(1, endPage - maxPagesToShow + 1);
                         }
-                        pageButton.addEventListener('click', () => {
-                            currentPage = i;
-                            renderTable(filterAndPaginateData());
-                            renderPagination();
-                        });
-                        pageNumbersContainer.appendChild(pageButton);
-                    }
 
-                    if (endPage < totalPages) {
-                        if (endPage < totalPages - 1) {
-                            const dots = document.createElement('span');
-                            dots.textContent = '...';
-                            pageNumbersContainer.appendChild(dots);
+                        if (startPage > 1) {
+                            const firstPageButton = document.createElement('button');
+                            firstPageButton.textContent = '1';
+                            firstPageButton.classList.add('bg-white', 'hover:bg-gray-200', 'text-gray-800', 'font-bold', 'py-2', 'px-3', 'rounded');
+                            firstPageButton.addEventListener('click', () => {
+                                currentPage = 1;
+                                renderTable(filterAndPaginateData());
+                                renderPagination();
+                            });
+                            numbersContainer.appendChild(firstPageButton);
+                            if (startPage > 2) {
+                                const dots = document.createElement('span');
+                                dots.textContent = '...';
+                                numbersContainer.appendChild(dots);
+                            }
                         }
-                        const lastPageButton = document.createElement('button');
-                        lastPageButton.textContent = totalPages;
-                        lastPageButton.classList.add('bg-white', 'hover:bg-gray-200', 'text-gray-800', 'font-bold', 'py-2', 'px-3', 'rounded');
-                        lastPageButton.addEventListener('click', () => {
-                            currentPage = totalPages;
-                            renderTable(filterAndPaginateData());
-                            renderPagination();
-                        });
-                        pageNumbersContainer.appendChild(lastPageButton);
-                    }
 
-                    prevPageButton.disabled = currentPage === 1;
-                    nextPageButton.disabled = currentPage === totalPages;
-                } else {
-                    paginationControls.classList.add('hidden');
-                }
+                        for (let i = startPage; i <= endPage; i++) {
+                            const pageButton = document.createElement('button');
+                            pageButton.textContent = i;
+                            pageButton.classList.add('bg-white', 'hover:bg-gray-200', 'text-gray-800', 'font-bold', 'py-2', 'px-3', 'rounded');
+                            if (i === currentPage) {
+                                pageButton.classList.add('bg-blue-500', 'text-white');
+                            }
+                            pageButton.addEventListener('click', () => {
+                                currentPage = i;
+                                renderTable(filterAndPaginateData());
+                                renderPagination();
+                            });
+                            numbersContainer.appendChild(pageButton);
+                        }
+
+                        if (endPage < totalPages) {
+                            if (endPage < totalPages - 1) {
+                                const dots = document.createElement('span');
+                                dots.textContent = '...';
+                                numbersContainer.appendChild(dots);
+                            }
+                            const lastPageButton = document.createElement('button');
+                            lastPageButton.textContent = totalPages;
+                            lastPageButton.classList.add('bg-white', 'hover:bg-gray-200', 'text-gray-800', 'font-bold', 'py-2', 'px-3', 'rounded');
+                            lastPageButton.addEventListener('click', () => {
+                                currentPage = totalPages;
+                                renderTable(filterAndPaginateData());
+                                renderPagination();
+                            });
+                            numbersContainer.appendChild(lastPageButton);
+                        }
+
+                        prevButton.disabled = currentPage === 1;
+                        nextButton.disabled = currentPage === totalPages;
+                    } else {
+                        container.classList.add('hidden');
+                    }
+                };
+
+                updatePaginationControls(topPaginationControls, topPrevPageButton, topNextPageButton, topPageNumbersContainer);
+                updatePaginationControls(bottomPaginationControls, bottomPrevPageButton, bottomNextPageButton, bottomPageNumbersContainer);
             }
         });
     </script>
