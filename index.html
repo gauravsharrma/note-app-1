@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Smart Notes Wall</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
 </head>
 <body class="bg-slate-100 p-4">
   <div class="max-w-4xl mx-auto">
@@ -18,39 +20,58 @@
   </div>
 
   <script>
-    const apiUrl = "https://script.google.com/macros/s/AKfycbyEZyJXjACF0WwJZflFpj-CgQANYX_BLIaJWdH_erh9KyLe40JhLK4iBIM--sinrDls/exec"; // Replace with actual Apps Script URL
+      // Import the functions you need from the SDKs you need
+        import { initializeApp } from "firebase/app";
+        import { getAnalytics } from "firebase/analytics";
+        // TODO: Add SDKs for Firebase products that you want to use
+        // https://firebase.google.com/docs/web/setup#available-libraries
+        
+        // Your web app's Firebase configuration
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        const firebaseConfig = {
+          apiKey: "AIzaSyBMaFbwodX0Vj3vappZmkaKuaPRMn1n0Q0",
+          authDomain: "notes-app-17apr2025.firebaseapp.com",
+          projectId: "notes-app-17apr2025",
+          storageBucket: "notes-app-17apr2025.firebasestorage.app",
+          messagingSenderId: "719486350096",
+          appId: "1:719486350096:web:370fcc2e0608d6519ceb95",
+          measurementId: "G-M2DGDK55H8"
+        };
+        
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
 
-    async function fetchNotes() {
-      const res = await fetch(apiUrl);
-      const data = await res.json();
-      document.getElementById("notesContainer").innerHTML = '';
-      data.reverse().forEach(([id, title, content]) => {
-        const div = document.createElement('div');
-        div.className = "bg-yellow-100 p-4 rounded-xl break-inside-avoid shadow text-gray-700";
-        div.innerHTML = `<h2 class="font-bold text-lg mb-2">${title}</h2><p>${content}</p>`;
-        document.getElementById("notesContainer").appendChild(div);
-      });
-    }
 
-    async function addNote() {
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    function addNote() {
       const title = document.getElementById("noteTitle").value.trim();
       const content = document.getElementById("noteContent").value.trim();
-      if (!title || !content) return alert("Please fill out both fields.");
+      if (!title || !content) return alert("Please fill both fields.");
 
-      const res = await fetch(apiUrl, {
-        method: "POST",
-        body: JSON.stringify({ title, content }),
-        headers: { "Content-Type": "application/json" }
-      });
-      const result = await res.json();
-      if (result.status === "success") {
+      db.collection("notes").add({
+        title,
+        content,
+        timestamp: new Date()
+      }).then(() => {
         document.getElementById("noteTitle").value = '';
         document.getElementById("noteContent").value = '';
-        fetchNotes();
-      }
+      });
     }
 
-    fetchNotes();
+    db.collection("notes").orderBy("timestamp", "desc").onSnapshot(snapshot => {
+      const notesContainer = document.getElementById("notesContainer");
+      notesContainer.innerHTML = '';
+      snapshot.forEach(doc => {
+        const note = doc.data();
+        const div = document.createElement('div');
+        div.className = "bg-yellow-100 p-4 rounded-xl break-inside-avoid shadow text-gray-700";
+        div.innerHTML = `<h2 class="font-bold text-lg mb-2">${note.title}</h2><p>${note.content}</p>`;
+        notesContainer.appendChild(div);
+      });
+    });
   </script>
 </body>
 </html>
